@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生成AIパスポート 単語帳</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg2: #f5f5f3;
+    --bg3: #eeede8;
+    --text: #1a1a18;
+    --text2: #6b6b67;
+    --text3: #999994;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.22);
+    --radius: 8px;
+    --radius-lg: 12px;
+    --green: #1D9E75;
+    --green-bg: #E1F5EE;
+    --green-text: #0F6E56;
+    --amber-bg: #FAEEDA;
+    --amber-text: #854F0B;
+    --amber-border: #BA7517;
+    --red-bg: #FCEBEB;
+    --red-text: #A32D2D;
+    --red-border: #E24B4A;
+    --ch1: #534AB7; --ch1-bg: #EEEDFE;
+    --ch2: #0F6E56; --ch2-bg: #E1F5EE;
+    --ch3: #993C1D; --ch3-bg: #FAECE7;
+    --ch4: #185FA5; --ch4-bg: #E6F1FB;
+    --ch5: #3B6D11; --ch5-bg: #EAF3DE;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1c;
+      --bg2: #2a2a28;
+      --bg3: #333331;
+      --text: #f0efe8;
+      --text2: #9b9b95;
+      --text3: #666662;
+      --border: rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.2);
+      --ch1: #9f99e8; --ch1-bg: #26215C;
+      --ch2: #5DCAA5; --ch2-bg: #04342C;
+      --ch3: #F0997B; --ch3-bg: #4A1B0C;
+      --ch4: #85B7EB; --ch4-bg: #042C53;
+      --ch5: #97C459; --ch5-bg: #173404;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', sans-serif;
+    background: var(--bg3);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+  }
+  header { margin-bottom: 1.5rem; }
+  header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  header p { font-size: 13px; color: var(--text2); }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 1rem;
+  }
+  select, .btn {
+    font-size: 13px;
+    padding: 7px 12px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border2);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: background .15s;
+    font-family: inherit;
+  }
+  select:hover, .btn:hover { background: var(--bg2); }
+
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 1rem;
+  }
+  .stat {
+    background: var(--bg2);
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    font-size: 13px;
+    color: var(--text2);
+  }
+  .stat span { font-weight: 600; color: var(--text); margin-left: 3px; }
+
+  .progress-bar {
+    height: 4px;
+    background: var(--bg2);
+    border-radius: 2px;
+    margin-bottom: 1.2rem;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 2px;
+    transition: width .4s;
+  }
+
+  /* カード */
+  .card-area { perspective: 1000px; margin-bottom: .8rem; }
+  .card-wrapper {
+    width: 100%;
+    min-height: 190px;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform .45s ease;
+    cursor: pointer;
+  }
+  .card-wrapper.flipped { transform: rotateY(180deg); }
+  .card-face {
+    position: absolute;
+    width: 100%;
+    min-height: 190px;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+  }
+  .card-back {
+    transform: rotateY(180deg);
+    background: var(--bg2);
+  }
+  .card-meta {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  .card-term {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    text-align: center;
+    line-height: 1.4;
+  }
+  .card-hint { font-size: 12px; color: var(--text3); margin-top: 14px; }
+  .card-desc {
+    font-size: 14px;
+    color: var(--text);
+    text-align: center;
+    line-height: 1.8;
+  }
+
+  /* ナビ */
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: .8rem;
+  }
+  .nav-btn {
+    font-size: 13px;
+    padding: 8px 18px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border2);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+    transition: background .15s;
+  }
+  .nav-btn:hover { background: var(--bg2); }
+  .nav-btn:disabled { opacity: .3; cursor: default; }
+  .progress-text { font-size: 14px; color: var(--text2); }
+
+  /* 評価ボタン */
+  .rating-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+  .r-btn {
+    font-size: 13px;
+    padding: 7px 18px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border2);
+    background: var(--bg);
+    color: var(--text2);
+    cursor: pointer;
+    transition: all .15s;
+    font-family: inherit;
+  }
+  .r-btn.good:hover, .r-btn.rated-good { background: var(--green-bg); color: var(--green-text); border-color: var(--green); }
+  .r-btn.ok:hover, .r-btn.rated-ok { background: var(--amber-bg); color: var(--amber-text); border-color: var(--amber-border); }
+  .r-btn.bad:hover, .r-btn.rated-bad { background: var(--red-bg); color: var(--red-text); border-color: var(--red-border); }
+
+  .empty { text-align: center; padding: 3rem; color: var(--text2); font-size: 14px; }
+
+  /* チャプターバッジ */
+  .ch-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+
+  /* フッター */
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 2rem;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>生成AIパスポート 単語帳</h1>
+    <p id="subtitle">シラバス全キーワード収録 — カードをクリックで意味を表示</p>
+  </header>
+
+  <div class="controls">
+    <select id="chapter-filter">
+      <option value="all">すべての章</option>
+      <option value="1">第1章 AI（人工知能）</option>
+      <option value="2">第2章 生成AI</option>
+      <option value="3">第3章 動向・サービス</option>
+      <option value="4">第4章 情報リテラシー・法律</option>
+      <option value="5">第5章 プロンプト・LLM</option>
+    </select>
+    <select id="mode-filter">
+      <option value="all">全カード</option>
+      <option value="weak">✗ 苦手のみ</option>
+      <option value="ok">△ 曖昧のみ</option>
+      <option value="unrated">未確認のみ</option>
+    </select>
+    <button class="btn" id="shuffle-btn">⇄ シャッフル</button>
+    <button class="btn" id="reset-btn">↺ リセット</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat">表示中<span id="stat-total">0</span></div>
+    <div class="stat">✓ 理解<span id="stat-good">0</span></div>
+    <div class="stat">△ 曖昧<span id="stat-ok">0</span></div>
+    <div class="stat">✗ 苦手<span id="stat-bad">0</span></div>
+    <div class="stat">未確認<span id="stat-unrated">0</span></div>
+  </div>
+
+  <div class="progress-bar">
+    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+
+  <div class="card-area" id="card-area">
+    <div class="card-wrapper" id="card-wrapper" onclick="flipCard()">
+      <div class="card-face">
+        <div class="ch-badge" id="card-badge"></div>
+        <div class="card-meta" id="card-meta"></div>
+        <div class="card-term" id="card-term">-</div>
+        <div class="card-hint">タップして説明を見る</div>
+      </div>
+      <div class="card-face card-back">
+        <div class="ch-badge" id="card-badge2"></div>
+        <div class="card-desc" id="card-desc">-</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rating-row" id="rating-row" style="display:none;">
+    <button class="r-btn good" id="rb-good" onclick="rate('good')">✓ 理解した</button>
+    <button class="r-btn ok"   id="rb-ok"   onclick="rate('ok')">△ 曖昧</button>
+    <button class="r-btn bad"  id="rb-bad"  onclick="rate('bad')">✗ 苦手</button>
+  </div>
+
+  <div class="nav">
+    <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">← 前へ</button>
+    <span class="progress-text" id="progress-text">0 / 0</span>
+    <button class="nav-btn" id="next-btn" onclick="navigate(1)">次へ →</button>
+  </div>
+
+  <footer>生成AIパスポート試験シラバス（2026年2月試験より適用）準拠</footer>
+</div>
+
+<script>
+const D=[
+/* ===第1章=== */
+{c:1,t:"AI（人工知能）",d:"Artificial Intelligence。人間の知的活動（推論・学習・判断など）をコンピュータで再現する技術の総称。"},
+{c:1,t:"ダートマス会議",d:"1956年に開催された会議。「人工知能（AI）」という言葉が初めて公式に使われた歴史的な場。"},
+{c:1,t:"ルールベース",d:"人間があらかじめ定めたルール（条件分岐など）に従って動作するAI手法。専門家の知識をルールとして記述する。"},
+{c:1,t:"機械学習",d:"データから自動的にパターンを学習し、予測・判断を行う手法。明示的なルール記述なしに性能が向上する。"},
+{c:1,t:"学習済みモデル",d:"大量のデータで事前に訓練済みのAIモデル。すぐに推論・予測に利用できる状態のもの。"},
+{c:1,t:"教師あり学習",d:"正解ラベル付きデータを用いてモデルを訓練する機械学習の手法。分類・回帰などに使われる。"},
+{c:1,t:"教師なし学習",d:"正解ラベルなしのデータからパターンや構造を発見する手法。クラスタリングなどに使われる。"},
+{c:1,t:"クラスタリング",d:"教師なし学習の一種。データを似た特徴を持つグループ（クラスター）に自動的に分類する手法。"},
+{c:1,t:"次元削減",d:"高次元データの特徴を保ちながら低次元に変換する手法。可視化や計算コスト削減に役立つ。"},
+{c:1,t:"強化学習",d:"エージェントが環境と相互作用し、報酬を最大化する行動を学習する手法。ゲームAIなどに応用。"},
+{c:1,t:"半教師あり学習",d:"少量のラベルありデータと大量のラベルなしデータを組み合わせて学習する手法。"},
+{c:1,t:"ノーフリーランチ定理",d:"すべての問題に対して最良のアルゴリズムは存在しないという定理。問題ごとに適切な手法の選択が必要。"},
+{c:1,t:"ニューロン",d:"脳を構成する神経細胞。信号を受け取り処理して次の神経細胞へ伝える。ニューラルネットワークのモデルの基礎。"},
+{c:1,t:"シナプス",d:"ニューロン間の接続部分。信号の伝達強度（重み）を調整することで情報処理が行われる。"},
+{c:1,t:"人工ニューロン（ノード）",d:"ニューラルネットワークの基本単位。入力を受け取り、重みを掛けて活性化関数に通し出力する。"},
+{c:1,t:"ニューラルネットワーク",d:"人間の脳神経回路を模倣した機械学習モデル。入力層・隠れ層・出力層で構成される。"},
+{c:1,t:"ディープラーニング",d:"多数の隠れ層を持つニューラルネットワークを用いた機械学習。画像認識・自然言語処理などで高精度を実現。"},
+{c:1,t:"重み",d:"ニューラルネットワーク内の各結合に付与される数値。学習によって最適な値に調整される。"},
+{c:1,t:"情報の重みづけ",d:"入力データの各要素に重みを掛けることで、重要な情報を強調し不要な情報を抑制する処理。"},
+{c:1,t:"過学習（オーバーフィッティング）",d:"訓練データに過度に適合してしまい、未知のデータへの汎化性能が低下する現象。"},
+{c:1,t:"正則化",d:"過学習を防ぐための手法。モデルの複雑さにペナルティを加えることで汎化性能を高める。"},
+{c:1,t:"ドロップアウト",d:"学習時にランダムにニューロンを無効化する過学習防止手法。ニューラルネットワークの汎化性能を向上させる。"},
+{c:1,t:"転移学習",d:"事前学習済みモデルの知識を別のタスクに活用する手法。少ないデータでも高い精度が得られる。"},
+{c:1,t:"特徴量",d:"機械学習において予測に使用するデータの属性・変数。適切な特徴量の選択がモデル精度に影響する。"},
+{c:1,t:"弱いAI（ANI）",d:"Artificial Narrow Intelligence。特定のタスクに特化したAI。現在実用化されているAIのほとんどがこれ。"},
+{c:1,t:"強いAI（AGI）",d:"Artificial General Intelligence。人間と同等以上の汎用的な知性を持つAI。現時点では実現していない。"},
+{c:1,t:"第一次AIブーム",d:"1950〜60年代。探索・推論を用いたゲームや数学の証明などに注目が集まった時期。"},
+{c:1,t:"探索",d:"可能な状態や手順を系統的に調べ、目標を見つける手法。チェスや迷路解法などに活用された。"},
+{c:1,t:"推論",d:"与えられた知識やルールから結論を導き出す処理。第一次・二次AIブームの中心的技術。"},
+{c:1,t:"第二次AIブーム",d:"1980年代。エキスパートシステムが登場し、専門知識をルールとして蓄積するAIが注目された時期。"},
+{c:1,t:"エキスパートシステム",d:"専門家の知識をルールとしてデータベース化し、推論エンジンで問題解決を行うAIシステム。"},
+{c:1,t:"AIの冬",d:"AIへの期待が過剰となり失望から研究・投資が減少した時期。第一次・二次ブームの後に訪れた。"},
+{c:1,t:"第三次AIブーム",d:"2010年代〜。ビッグデータとディープラーニングの発展により実用的なAIが急速に普及した時期。"},
+{c:1,t:"ビッグデータ",d:"従来のデータ管理手法では扱えない大量・多様・高速なデータ。AIの学習に不可欠な資源。"},
+{c:1,t:"シンギュラリティ（技術的特異点）",d:"AIが人間の知性を超え、文明や社会が根本的に変容するとされる仮説上の転換点。"},
+{c:1,t:"ヴァーナー・ヴィンジ",d:"シンギュラリティの概念を1993年に広めたSF作家・数学者。技術的特異点を最初に論じた人物の一人。"},
+{c:1,t:"レイ・カーツワイル",d:"未来学者・発明家。AIが人間の知性を超える時期を2045年と予測し「2045年問題」を提唱した。"},
+{c:1,t:"2045年問題",d:"2045年頃にAIが人間の知性を超えるシンギュラリティが到来するという予測。レイ・カーツワイルが提唱。"},
+{c:1,t:"AI効果",d:"AIがあるタスクを解決すると「それは真の知能ではない」とみなす傾向。AIの定義が絶えず変化する現象。"},
+/* ===第2章=== */
+{c:2,t:"生成AI（ジェネレーティブAI）",d:"テキスト・画像・音楽・動画などのコンテンツを生成できるAI。GPTやStable Diffusionなどが代表例。"},
+{c:2,t:"ボルツマンマシン",d:"確率的ニューラルネットワークの一種。可視層と隠れ層を持ち、データの確率分布を学習する生成モデル。"},
+{c:2,t:"制約付きボルツマンマシン",d:"ボルツマンマシンを効率化した手法。可視層と隠れ層のみ接続し学習を高速化したモデル。"},
+{c:2,t:"自己回帰モデル",d:"過去の出力を条件として次の出力を予測するモデル。テキスト生成AIの基本的な仕組み。"},
+{c:2,t:"CNN（畳み込みニューラルネットワーク）",d:"画像認識に特化したニューラルネットワーク。畳み込み演算により画像の局所特徴を効率的に抽出する。"},
+{c:2,t:"畳み込み",d:"フィルターを画像に適用して特徴マップを生成する演算。エッジや模様などの局所パターンを検出する。"},
+{c:2,t:"VAE（変分自己符号化器）",d:"入力データを潜在空間に圧縮し再構成する生成モデル。連続的な潜在表現により多様なデータを生成できる。"},
+{c:2,t:"ノイズ",d:"生成AIでは、ランダムな値から画像などを生成する際の出発点となるランダム信号のこと。"},
+{c:2,t:"エンコーダ",d:"入力データを潜在ベクトル（特徴表現）に変換するニューラルネットワークの部分。"},
+{c:2,t:"デコーダ",d:"潜在ベクトルから元のデータ（画像・テキスト）を復元・生成するニューラルネットワークの部分。"},
+{c:2,t:"潜在ベクトル",d:"エンコーダが入力データを圧縮した低次元の特徴表現。類似データは潜在空間で近くに位置する。"},
+{c:2,t:"GAN（敵対的生成ネットワーク）",d:"生成器と識別器が競い合いながら学習する生成モデル。リアルな画像生成などに活用される。"},
+{c:2,t:"生成器",d:"GANにおいてデータを生成するネットワーク。識別器を騙せるようなリアルなデータを生成することを学習する。"},
+{c:2,t:"識別器",d:"GANにおいて本物と偽物を見分けるネットワーク。生成器との競争を通じてどちらも精度が向上する。"},
+{c:2,t:"RNN（回帰型ニューラルネットワーク）",d:"時系列・シーケンスデータを扱うネットワーク。前の出力を次の入力に使う構造で文章の文脈を保持する。"},
+{c:2,t:"隠れ層",d:"ニューラルネットワークの入力層と出力層の間にある層。特徴の抽象化・変換を行う。"},
+{c:2,t:"リカレント層",d:"RNNに含まれる、前の時刻の出力を再度入力として受け取る構造を持つ層。"},
+{c:2,t:"シーケンスデータ",d:"時系列や順序のある一連のデータ。文章・音声・株価など。RNNやTransformerが得意とする。"},
+{c:2,t:"LSTM（長・短期記憶）",d:"RNNの一種。長期依存関係を学習できるよう設計されたモデル。ゲート機構で勾配消失問題を解決する。"},
+{c:2,t:"Transformerモデル",d:"2017年にGoogleが発表した自然言語処理モデル。Self-Attentionにより文章全体の文脈を並列処理できる。"},
+{c:2,t:"Attention層",d:"Transformerに含まれる、入力の各部分に対してどれだけ注目すべきかを計算する機構。"},
+{c:2,t:"自己注意力（Self-Attention）",d:"入力シーケンス内の各要素が他の要素との関連度を計算し、文脈を考慮した表現を生成する仕組み。"},
+{c:2,t:"Attention Mechanism",d:"重要な情報に選択的に注目する仕組み。翻訳・要約・テキスト生成において精度を大幅に向上させた。"},
+{c:2,t:"位置エンコーディング",d:"Transformerが単語の順序情報を保持するために各位置に固有のベクトルを加える手法。"},
+{c:2,t:"アーキテクチャ",d:"AIモデルの設計構造・構成。層の種類・数・接続方法などを指す。モデルの性能を左右する重要要素。"},
+{c:2,t:"GPTモデル",d:"OpenAIが開発したTransformerベースの大規模言語モデル。ChatGPTの基盤となる自己回帰型モデル。"},
+{c:2,t:"Open AI",d:"GPT・ChatGPT・DALLEなどを開発するAI研究企業。Microsoftが出資し、生成AI分野をリードする。"},
+{c:2,t:"BERTモデル",d:"Googleが開発した双方向Transformerモデル。MLMとNSPで事前学習し、自然言語理解タスクで高精度を実現。"},
+{c:2,t:"MLM（Masked Language Model）",d:"BERTの事前学習手法の一つ。文中の一部の単語をマスクし、前後の文脈からその単語を予測する。"},
+{c:2,t:"NSP（Next Sentence Prediction）",d:"BERTの事前学習手法の一つ。二つの文が連続するかを予測することで文間の関係を学習する。"},
+{c:2,t:"RoBERTa",d:"BERTを改良した言語モデル。より多くのデータ・長い訓練時間・大きいバッチサイズで性能を向上。"},
+{c:2,t:"ALBERT（a Lite BERT）",d:"BERTを軽量化したモデル。パラメータ共有と因数分解埋め込みにより効率的な学習を実現。"},
+{c:2,t:"ChatGPT",d:"OpenAIが開発した対話型AI。GPT-3.5以降をベースに、RLHFで人間のフィードバックを学習した。"},
+{c:2,t:"GPT-1",d:"OpenAIが2018年に発表した最初のGPTモデル。1.1億パラメータを持つ自己回帰型言語モデル。"},
+{c:2,t:"自然言語処理（NLP）",d:"コンピュータが人間の言語を理解・生成・翻訳する技術分野。ChatGPTなどの基盤技術。"},
+{c:2,t:"GPT-2",d:"OpenAIが2019年に発表。15億パラメータを持ち、文章生成能力の高さから公開が制限されたモデル。"},
+{c:2,t:"パラメータ",d:"機械学習モデルが学習により調整される変数の総数。多いほど表現力が高まる傾向がある。"},
+{c:2,t:"GPT-3",d:"2020年発表。1750億パラメータを持つ大規模モデル。Few-Shot学習で多様なタスクに対応できる。"},
+{c:2,t:"InstructGPT",d:"GPT-3をRLHFでファインチューニングしたモデル。人間の指示に従いやすくなったGPTの前身。"},
+{c:2,t:"GPT-3.5",d:"ChatGPTの初期バージョンに使われたモデル。GPT-3を改善し、対話性能が大幅に向上した。"},
+{c:2,t:"GPT-4",d:"2023年発表。マルチモーダル対応（画像入力可）の大規模モデル。論理的推論能力が大幅に向上。"},
+{c:2,t:"データセット",d:"モデルの学習に使用するデータの集合。多様で大規模なデータセットほど汎化性能の高いモデルができる。"},
+{c:2,t:"RLHF（Reinforcement Learning from Human Feedback）",d:"人間のフィードバックを報酬として強化学習を行う手法。ChatGPTの安全性・有用性向上に使われた。"},
+{c:2,t:"アライメント（Alignment）",d:"AIの目標・価値観を人間の意図・倫理と一致させること。RLHFなどでChatGPTの安全性確保に活用。"},
+{c:2,t:"ファインチューニング",d:"事前学習済みモデルを特定タスク用のデータで追加学習する手法。少ないデータで高精度化できる。"},
+{c:2,t:"ハルシネーション（Hallucination）",d:"AIが事実に基づかない内容をもっともらしく生成する現象。生成AIの重大なリスクの一つ。"},
+{c:2,t:"マルチモーダル",d:"テキスト・画像・音声・動画など複数の種類のデータを同時に処理・生成できるAIの特性。"},
+{c:2,t:"Code Interpreter",d:"ChatGPTに追加されたPythonコード実行機能。データ分析・グラフ作成・ファイル変換などができる。"},
+{c:2,t:"GPTs",d:"OpenAIが提供するカスタムChatGPT作成機能。特定目的に特化したAIアシスタントを作成・共有できる。"},
+{c:2,t:"GPT-4o",d:"2024年発表。音声・画像・テキストをリアルタイムで処理できるマルチモーダルモデル（omni）。"},
+{c:2,t:"GPT-o1",d:"OpenAIが2024年後半に発表した推論特化モデル。回答前に深く考えるChain-of-Thoughtを採用。"},
+{c:2,t:"GPT-o3",d:"GPT-o1の後継の高性能推論モデル。科学・数学・コーディングなど複雑なタスクで高精度を実現。"},
+{c:2,t:"GPT-o4",d:"OpenAIの最新推論モデルシリーズ。より高度な論理推論とマルチモーダル能力を持つ。"},
+{c:2,t:"GPT-4.1",d:"GPT-4の改良版として位置づけられるOpenAIのモデル。コーディングや長文処理能力が向上。"},
+{c:2,t:"GPT-5",d:"OpenAIが開発を進める次世代大規模言語モデル。さらなる推論・マルチモーダル能力の向上が期待される。"},
+{c:2,t:"Sora",d:"OpenAIが発表したテキストから動画を生成するAIモデル。高品質で一貫性のある動画を生成できる。"},
+{c:2,t:"Operator",d:"OpenAIが提供するAIエージェント機能。ウェブブラウザを操作してタスクを自律的に実行できる。"},
+{c:2,t:"Codex",d:"OpenAIが開発したコード生成AI。GitHub Copilotの基盤技術として自然言語からコードを生成する。"},
+{c:2,t:"Image Generation",d:"テキストの説明から画像を自動生成するAI機能。DALL-Eなどが代表例。"},
+{c:2,t:"Gemini",d:"Googleが開発したマルチモーダル大規模言語モデル。テキスト・画像・音声・動画を統合処理できる。"},
+{c:2,t:"Claude",d:"Anthropicが開発した大規模言語モデル。安全性・倫理性を重視した設計で、長文処理能力に優れる。"},
+{c:2,t:"Copilot",d:"Microsoftが提供するAIアシスタント。GPT-4をベースにOffice製品やWindows・Bingに統合されている。"},
+/* ===第3章=== */
+{c:3,t:"テキスト生成AI",d:"プロンプトに基づいて自然な文章・文書・会話を生成するAI。ChatGPT・Claude・Geminiなどが代表例。"},
+{c:3,t:"画像生成AI",d:"テキストや既存画像を入力として新しい画像を生成するAI。Stable Diffusion・DALL-E・Midjourneyなどが代表。"},
+{c:3,t:"音楽生成AI",d:"テキスト指示や条件を元にオリジナルの音楽・楽曲を自動作成するAI。Suno・Udioなどが代表例。"},
+{c:3,t:"音声生成AI",d:"テキストから自然な音声（読み上げ・会話）を生成するAI。感情・口調・声質の制御が可能なものもある。"},
+{c:3,t:"動画生成AI",d:"テキストや画像から動画コンテンツを自動生成するAI。Sora・Veo3・Runwayなどが代表例。"},
+{c:3,t:"画像のリサイズ",d:"画像生成AIの学習前処理として解像度や縦横比を統一するために行う変換処理。"},
+{c:3,t:"正規化",d:"データの値を一定範囲（例：0〜1）に変換する前処理。学習の安定化・高速化に不可欠。"},
+{c:3,t:"データの水増し（augmentation）",d:"既存データに変換（回転・反転・色変更）を加えて擬似的にデータ量を増やす手法。過学習防止に有効。"},
+{c:3,t:"データ拡張技術",d:"学習データを人工的に増やす技術の総称。画像のトリミング・ノイズ付加・色調変換などが含まれる。"},
+{c:3,t:"リマスタリング",d:"古い画像・音声・動画の品質をAIで向上させる技術。解像度向上・ノイズ除去などに活用される。"},
+{c:3,t:"Veo3",d:"Googleが発表した動画生成AIモデル。高品質でリアリスティックな動画と音声を同時に生成できる。"},
+{c:3,t:"ディープフェイク（深層偽造）技術",d:"AIを使って人物の顔・声・動作を別人に置き換えた偽動画・画像を生成する技術。"},
+{c:3,t:"偽情報（ディスインフォメーション）",d:"意図的に作られた虚偽の情報。ディープフェイクはその作成・拡散に悪用されるリスクがある。"},
+{c:3,t:"RAG（Retrieval-Augmented Generation）",d:"外部データベースから関連情報を検索し、それを参照しながらテキストを生成する手法。ハルシネーション低減に有効。"},
+{c:3,t:"チャンク",d:"RAGにおいて長い文書を検索しやすいように分割した小さなテキストの単位。"},
+{c:3,t:"ベクトルデータベース",d:"テキスト・画像などをベクトル（数値配列）として保存・検索するデータベース。RAGのセマンティック検索に使用。"},
+{c:3,t:"AIエージェント",d:"目標を与えられると自律的に計画を立て、ツールを使いながら複数ステップのタスクを実行するAIシステム。"},
+{c:3,t:"GenSpark",d:"AIエージェントを活用した検索・調査タスク自動化ツール。複数の情報を収集・整理して提供する。"},
+{c:3,t:"Manus",d:"AIエージェントの一例。ウェブ検索・コード実行・ファイル操作などを自律的に行えるとされる。"},
+{c:3,t:"Skywork AI",d:"AIエージェント機能を提供するサービスの例。複雑な作業を自律的に実行できるエージェントを提供する。"},
+{c:3,t:"MCP",d:"Model Context Protocol。AIエージェントが外部ツール・APIと連携するための標準的なプロトコル。Anthropicが提唱。"},
+/* ===第4章=== */
+{c:4,t:"インターネットリテラシー",d:"インターネットを安全かつ適切に活用するための知識・判断力・スキルの総称。"},
+{c:4,t:"テクノロジーの理解",d:"ITの仕組みや機能を正しく理解すること。適切な活用・リスク回避の基礎となる。"},
+{c:4,t:"情報リテラシー",d:"情報を適切に収集・評価・活用・発信する能力。信頼できる情報の見分け方を含む。"},
+{c:4,t:"セキュリティとプライバシー",d:"個人情報や通信内容を守り、不正アクセスや漏洩を防ぐための知識と対策。"},
+{c:4,t:"デジタル市民権",d:"デジタル社会において責任ある行動をとるための権利と義務についての概念。"},
+{c:4,t:"フィッシング詐欺",d:"実在する企業・機関を装った偽メール・サイトで個人情報を騙し取る詐欺手口。"},
+{c:4,t:"スミッシング",d:"SMS（ショートメッセージ）を使ったフィッシング詐欺。偽リンクで個人情報を盗む。"},
+{c:4,t:"ヴィッシング",d:"電話（音声）を使ったフィッシング詐欺。銀行や公的機関を装って情報を詐取する。"},
+{c:4,t:"マルウェア",d:"悪意のあるソフトウェアの総称。ウイルス・ランサムウェア・スパイウェアなどが含まれる。"},
+{c:4,t:"アンチウイルスソフトウェア",d:"マルウェアを検出・除去・防止するセキュリティソフト。リアルタイム保護機能を持つ。"},
+{c:4,t:"ランサムウェア",d:"ファイルを暗号化し、復号の代わりに身代金を要求するマルウェア。企業への被害が深刻。"},
+{c:4,t:"ソーシャルエンジニアリング攻撃",d:"人間の心理・信頼を悪用して情報を詐取したりシステムへの不正アクセスを行う攻撃手法。"},
+{c:4,t:"スピアフィッシング",d:"特定の個人・組織を標的にした巧妙なフィッシング攻撃。個人情報を利用したメールで信頼させる。"},
+{c:4,t:"ベイト攻撃",d:"USBメモリなどを意図的に放置し、拾った人がPCに接続することでマルウェアに感染させる手口。"},
+{c:4,t:"ブラックメール",d:"脅迫メール。偽の情報や実際に取得した情報を使い、金銭を要求する詐欺手口。"},
+{c:4,t:"プレテキスト",d:"架空のシナリオを作り上げて相手を信頼させ、情報を詐取するソーシャルエンジニアリング手法。"},
+{c:4,t:"悪意のあるQRコード",d:"偽サイトや不正アプリへ誘導するQRコードを使った詐欺・攻撃手口。見た目で判別が難しい。"},
+{c:4,t:"Wi-Fiに潜む罠",d:"公衆Wi-Fiを悪用した通信傍受・偽アクセスポイント（Evil Twin）などのサイバー攻撃。"},
+{c:4,t:"アップロードサービスに潜む詐欺",d:"ファイル共有・アップロードサービスを通じてマルウェアを配布する詐欺手口。"},
+{c:4,t:"不適切なコンテンツへのWebアクセス",d:"有害サイト・フィッシングサイトへのアクセスによる情報漏洩やマルウェア感染リスク。"},
+{c:4,t:"プライバシー設定",d:"SNSやアプリで個人情報の公開範囲を制御する設定。適切な設定がプライバシー保護に重要。"},
+{c:4,t:"生成AIの技術的発展に潜む脅威",d:"ディープフェイク・自動フィッシング生成・音声クローンなど生成AI技術を悪用した新たなリスク。"},
+{c:4,t:"個人情報保護法",d:"個人情報の適切な取り扱いを事業者に義務付ける日本の法律。2022年に全面改正された。"},
+{c:4,t:"改正個人情報保護法",d:"2022年施行。漏洩時の報告義務・外国提供規制・仮名加工情報の新設などが強化された。"},
+{c:4,t:"個人情報保護委員会",d:"個人情報保護法の監督・執行を担う日本の独立した行政機関。"},
+{c:4,t:"個人情報取扱事業者",d:"個人情報データベースを事業に利用するすべての事業者。個人情報保護法の義務が適用される。"},
+{c:4,t:"個人識別符号",d:"特定の個人を識別できる符号。指紋・顔認証データ・マイナンバーなどが該当し個人情報として扱われる。"},
+{c:4,t:"要配慮個人情報",d:"人種・信条・病歴・犯罪歴など、取り扱いに特に注意が必要な個人情報。収集には原則同意が必要。"},
+{c:4,t:"機微（センシティブ）情報",d:"金融・医療・思想信条など特に慎重な取り扱いが必要な情報。要配慮個人情報とほぼ同義。"},
+{c:4,t:"匿名加工情報",d:"特定の個人を識別できないよう加工した情報。加工基準を満たせば本人同意なく利活用できる。"},
+{c:4,t:"マスキング",d:"個人情報の特定部分を隠す処理。氏名の一部を「＊」で置き換えるなど、プライバシー保護に使用。"},
+{c:4,t:"知的財産権",d:"創作物や発明に対して付与される法的権利の総称。著作権・特許権・商標権・意匠権などを含む。"},
+{c:4,t:"著作権",d:"文章・絵・音楽・プログラムなどの著作物を創作した者に自動的に付与される権利。"},
+{c:4,t:"特許権",d:"新発明を独占的に利用できる権利。特許庁への出願・審査・登録が必要。"},
+{c:4,t:"商標権",d:"商品・サービスの識別に使われるブランド名・ロゴを独占使用できる権利。登録が必要。"},
+{c:4,t:"意匠権",d:"製品のデザイン（形状・模様・色彩）を保護する権利。特許庁への登録が必要。"},
+{c:4,t:"肖像権",d:"自己の容姿・姿を無断で撮影・公開されない権利。すべての人に認められる人格権の一つ。"},
+{c:4,t:"パブリシティ権",d:"有名人が自己の氏名・肖像を商業的に利用する権利。芸能人・スポーツ選手などに認められる。"},
+{c:4,t:"不正競争防止法",d:"営業秘密の漏洩・模倣品販売など不正な競争行為を防止する法律。AIによる模倣も対象となりうる。"},
+{c:4,t:"営業秘密",d:"不正競争防止法で保護される秘密管理・有用・非公知の3要件を満たす事業上の情報。"},
+{c:4,t:"限定提供データ",d:"特定の者に限定して提供されるデータ。不正競争防止法で保護対象となる。"},
+{c:4,t:"著作権侵害",d:"著作権者の許可なく著作物を複製・配布・公開などする行為。AIの学習データ問題でも議論される。"},
+{c:4,t:"名誉毀損",d:"人の社会的評価を低下させる事実の摘示。生成AIが誤情報を生成した場合も問題となりうる。"},
+{c:4,t:"生成物",d:"生成AIが作成したテキスト・画像・音楽・動画などのコンテンツ。著作権の帰属が法的に議論されている。"},
+{c:4,t:"人間の尊厳が尊重される社会（Dignity）",d:"AI社会の基本理念の一つ。すべての人の尊厳と基本的人権が守られる社会を目指す概念。"},
+{c:4,t:"多様な背景を持つ人々が多様な幸せを追求できる社会（Diversity & Inclusion）",d:"AI社会原則の理念。年齢・性別・国籍などにかかわらずAIの恩恵を享受できる社会。"},
+{c:4,t:"持続可能な社会（Sustainability）",d:"AI社会原則の理念。環境・経済・社会が長期的に持続できる形でAIを活用する考え方。"},
+{c:4,t:"人間中心の考え方",d:"AI社会原則の一つ。AIは人間の幸福・権利の実現のために設計・運用されるべきという考え方。"},
+{c:4,t:"安全性・公平性",d:"AI社会原則。AIが誰かを傷つけたり不当な差別をしないよう、安全で公正に設計・運用されること。"},
+{c:4,t:"プライバシー保護",d:"AI社会原則。個人のデータや私生活の情報がAIにより侵害されないよう保護すること。"},
+{c:4,t:"セキュリティ確保",d:"AI社会原則。AIシステムが不正アクセスや改ざんから守られ、安全に運用されること。"},
+{c:4,t:"透明性",d:"AI社会原則。AIの判断根拠・学習データ・仕組みが説明可能で理解可能な状態にあること。"},
+{c:4,t:"アカウンタビリティ",d:"AI社会原則。AIの判断や結果について、開発者・提供者・利用者が責任を持って説明できること。"},
+{c:4,t:"教育・リテラシー",d:"AI社会原則。AIについての理解を国民全体で高め、適切に活用できる人材を育てること。"},
+{c:4,t:"公正競争確保",d:"AI社会原則。特定の事業者がAIで市場を独占しないよう、公平な競争環境を維持すること。"},
+{c:4,t:"イノベーション",d:"AI社会原則。AIを活用して新しい価値・サービス・産業を創出し社会課題を解決すること。"},
+{c:4,t:"環境・リスク分析",d:"AIガバナンス構築の第一段階。自社のAI活用環境とリスクを把握・分析するプロセス。"},
+{c:4,t:"AIガバナンス・ゴール",d:"AIガバナンス構築の第二段階。リスク分析を踏まえて自社が目指すAI活用の目標を設定すること。"},
+{c:4,t:"AIマネジメントシステム",d:"AIガバナンス構築の第三段階。ゴールを実現するための管理体制・手続き・ルールの整備。"},
+{c:4,t:"AI開発者（AI Developer）",d:"AIシステムを設計・開発する主体。倫理的なAI設計とリスク管理の責任を担う。"},
+{c:4,t:"AI提供者（AI Provider）",d:"開発されたAIシステムをサービスとして提供する主体。利用者への適切な情報提供義務がある。"},
+{c:4,t:"AI利用者（AI Business User）",d:"AIサービスを業務等で活用する主体。適切な利用と結果への責任を持つ。"},
+{c:4,t:"AI新法",d:"2025年6月4日公布の「人工知能関連技術の研究開発及び活用の推進に関する法律」の通称。"},
+{c:4,t:"人工知能関連技術の研究開発及び活用の推進に関する法律",d:"2025年6月に公布された日本のAI推進法。AIの研究開発支援とリスク管理の両立を目的とする。"},
+/* ===第5章=== */
+{c:5,t:"LM（Language Model：言語モデル）",d:"テキストの確率的パターンを学習し、次の単語を予測するモデルの総称。LLMの基礎となる概念。"},
+{c:5,t:"n-gramモデル",d:"直前のn個の単語から次の単語を予測する統計的言語モデル。シンプルだが長距離依存が苦手。"},
+{c:5,t:"ニューラル言語モデル",d:"ニューラルネットワークで言語を学習するモデル。n-gramより複雑なパターンを捉えられる。"},
+{c:5,t:"LLM（Large Language Model：大規模言語モデル）",d:"大量のテキストデータで訓練された超大規模な言語モデル。GPT・Claude・Geminiなどが代表例。"},
+{c:5,t:"プレトレーニング",d:"大量のデータで事前に行う汎用的な学習。その後ファインチューニングで特定タスクに適応させる。"},
+{c:5,t:"ハイパーパラメータ",d:"学習前に人間が設定するモデルの設定値。学習率・バッチサイズ・層の数などがある。"},
+{c:5,t:"Temperature",d:"LLMの出力のランダム性を制御するパラメータ。高いと創造的・多様な出力、低いと安定した出力になる。"},
+{c:5,t:"Top-p",d:"LLMが次トークン選択時に考慮する確率の累計上位p%以内に絞る制御パラメータ。出力の多様性を調整する。"},
+{c:5,t:"プロンプト",d:"AIに与える指示文・入力テキスト。プロンプトの質が生成AIの出力品質を大きく左右する。"},
+{c:5,t:"プロンプトエンジニアリング",d:"生成AIから望む出力を引き出すためのプロンプト設計・最適化の技術・技法。"},
+{c:5,t:"Instruction（指示）",d:"プロンプトの構成要素の一つ。AIに具体的な動作・タスクを指示する部分。"},
+{c:5,t:"Context（文脈・背景）",d:"プロンプトの構成要素の一つ。AIが回答するために必要な背景情報・文脈を提供する部分。"},
+{c:5,t:"Input Data（入力データ）",d:"プロンプトの構成要素の一つ。AIが処理すべき具体的なデータや質問の内容。"},
+{c:5,t:"Output Indicator（出力指定）",d:"プロンプトの構成要素の一つ。AIに期待する出力の形式・スタイル・長さなどを指定する部分。"},
+{c:5,t:"Zero-Shotプロンプティング",d:"例示なしに直接タスクを指示するプロンプト手法。LLMの汎用能力を活用する基本的な手法。"},
+{c:5,t:"Few-Shotプロンプティング",d:"少数の入出力例をプロンプトに含めて期待する出力パターンをAIに示す手法。精度向上に有効。"},
+{c:5,t:"文章の校正・校正箇所の確認",d:"プロンプトでAIに文章の誤字脱字・文法・表現の誤りを検出・修正させる実践的な活用法。"},
+{c:5,t:"文章の整理",d:"AIを使って乱雑な文章を論理的に整理・構造化させるプロンプト技法。"},
+{c:5,t:"文章の要約",d:"長文をAIに短く要点をまとめさせる指示。「〇字以内で要約して」などの指定が効果的。"},
+{c:5,t:"箇条書きを文章に変換・文章を箇条書きに変換",d:"AIに箇条書き↔文章の相互変換をさせる技法。資料作成やメモ整理に活用できる。"},
+{c:5,t:"文章の対象を変更する",d:"AIに対象読者（子ども向け・専門家向けなど）を変えた文章に書き直させる技法。"},
+{c:5,t:"話者の設定を変更する",d:"AIに視点・語り手を変えた文章（一人称→三人称など）に書き直させる技法。"},
+{c:5,t:"文章を会話のやり取りへ変換",d:"AIに文章をQ&A形式や対話形式に変換させる技法。教材作成などに活用できる。"},
+{c:5,t:"例え話で理解を深める",d:"AIに難しい概念を身近な例え話で説明させる技法。「〇〇を小学生に例えて説明して」など。"},
+{c:5,t:"数字の変換",d:"AIに単位変換・数値の言語表現への変換などをさせるプロンプト活用法。"},
+{c:5,t:"メールの作成",d:"AIに件名・宛先・目的を伝えてビジネスメールを作成させる実践的な活用法。"},
+{c:5,t:"アンケート項目の作成",d:"AIに調査目的・対象者・テーマを伝えて適切なアンケート設問を生成させる活用法。"},
+{c:5,t:"アンケートの分析",d:"収集したアンケート結果をAIに要約・分類・傾向分析させる活用法。"},
+{c:5,t:"キャッチコピーの作成",d:"AIに商品特徴・ターゲット・トーンを伝えて魅力的なキャッチフレーズを生成させる活用法。"},
+{c:5,t:"ビジネス書類のテンプレート作成",d:"AIに議事録・報告書・企画書などのテンプレートを作成させる活用法。"},
+{c:5,t:"アジェンダの作成",d:"AIに会議の目的・参加者・時間を伝えて進行表（アジェンダ）を作成させる活用法。"},
+{c:5,t:"業務の手順を分解",d:"AIに複雑な業務をステップバイステップで分解・整理させる活用法。マニュアル作成などに有効。"},
+{c:5,t:"タスクの抽出",d:"AIに会議メモや業務内容からTo-Do・アクションアイテムを抽出させる活用法。"},
+{c:5,t:"外国語の翻訳",d:"AIに文章を他言語に翻訳させる活用法。ニュアンスやトーンの指定も可能。"},
+{c:5,t:"英単語から英文の作成",d:"指定した英単語を使った英文をAIに作成させる活用法。語学学習・ライティング練習に有効。"},
+{c:5,t:"海外企業宛のメール文章の作成",d:"AIに英語ビジネスメールを作成させる活用法。文化・ビジネス慣行に合わせた表現も指示できる。"},
+{c:5,t:"ディベートを行う",d:"AIに賛否両論を提示させたり、特定の立場から議論させる活用法。考えの整理・研修に有効。"},
+{c:5,t:"姓と名の分離",d:"AIにフルネームのデータを姓・名に分割させるデータ整理の活用法。"},
+{c:5,t:"ふりがなの記載",d:"AIに漢字名や専門用語にふりがな（ルビ）を付けさせる活用法。"},
+{c:5,t:"ブレインストーミング",d:"AIにテーマに関するアイデアを大量に発散させる活用法。「100個アイデアを出して」なども有効。"},
+{c:5,t:"質問させながら一緒に進める",d:"AIに不明点を質問させながらタスクを段階的に進める対話型プロンプト技法。"},
+{c:5,t:"正確な文字数の指定（不得意）",d:"LLMはトークンベースで処理するため、「ちょうど〇文字」の厳密な文字数制御が苦手。"},
+{c:5,t:"計算（不得意）",d:"LLMはパターン予測モデルのため、複雑な数値計算が不得意。Code Interpreter等との併用が有効。"},
+{c:5,t:"最新の情報（不得意）",d:"LLMは学習データのカットオフ以降の情報を持たない。最新情報はWeb検索ツールとの連携が必要。"},
+{c:5,t:"芸術の批評（不得意）",d:"芸術的価値判断は主観的であり、LLMは一般的な傾向を述べることはできても深い批評が難しい。"},
+];
+
+const chName=["","第1章","第2章","第3章","第4章","第5章"];
+const chFg=["","#534AB7","#0F6E56","#993C1D","#185FA5","#3B6D11"];
+const chBg=["","#EEEDFE","#E1F5EE","#FAECE7","#E6F1FB","#EAF3DE"];
+
+// localStorage で進捗を永続化
+let ratings = JSON.parse(localStorage.getItem('genai_ratings') || '{}');
+let cards=[...D], current=0, flipped=false;
+let filterCh="all", filterMode="all";
+
+function saveRatings(){ localStorage.setItem('genai_ratings', JSON.stringify(ratings)); }
+
+function getFiltered(){
+  return D.filter(c=>{
+    if(filterCh!=="all"&&c.c!==parseInt(filterCh))return false;
+    const r=ratings[c.t];
+    if(filterMode==="weak"&&r!=="bad")return false;
+    if(filterMode==="ok"&&r!=="ok")return false;
+    if(filterMode==="unrated"&&r)return false;
+    return true;
+  });
+}
+
+function updateStats(){
+  document.getElementById("stat-total").textContent=cards.length;
+  document.getElementById("stat-good").textContent=D.filter(c=>ratings[c.t]==="good").length;
+  document.getElementById("stat-ok").textContent=D.filter(c=>ratings[c.t]==="ok").length;
+  document.getElementById("stat-bad").textContent=D.filter(c=>ratings[c.t]==="bad").length;
+  document.getElementById("stat-unrated").textContent=D.filter(c=>!ratings[c.t]).length;
+  const rated=D.filter(c=>ratings[c.t]).length;
+  document.getElementById("progress-fill").style.width=(D.length?Math.round(rated/D.length*100):0)+"%";
+  document.getElementById("subtitle").textContent="全"+D.length+"語収録 — カードをクリックで意味を表示";
+}
+
+function renderCard(){
+  const area=document.getElementById("card-area");
+  if(!cards.length){
+    area.innerHTML='<div class="empty">該当するカードがありません</div>';
+    document.getElementById("progress-text").textContent="0 / 0";
+    document.getElementById("rating-row").style.display="none";
+    return;
+  }
+  if(area.querySelector(".empty")) location.reload(); // 簡易リセット
+  const card=cards[current];
+  const ch=card.c;
+  const badge=document.getElementById("card-badge");
+  const badge2=document.getElementById("card-badge2");
+  badge.textContent=chName[ch];
+  badge.style.background=chBg[ch];
+  badge.style.color=chFg[ch];
+  badge2.textContent=chName[ch];
+  badge2.style.background=chBg[ch];
+  badge2.style.color=chFg[ch];
+  document.getElementById("card-meta").textContent=(current+1)+" / "+cards.length;
+  document.getElementById("card-term").textContent=card.t;
+  document.getElementById("card-desc").textContent=card.d;
+  document.getElementById("prev-btn").disabled=current===0;
+  document.getElementById("next-btn").disabled=current===cards.length-1;
+  document.getElementById("progress-text").textContent=(current+1)+" / "+cards.length;
+  const w=document.getElementById("card-wrapper");
+  w.classList.toggle("flipped",flipped);
+  document.getElementById("rating-row").style.display=flipped?"flex":"none";
+  const r=ratings[card.t];
+  ["good","ok","bad"].forEach(k=>{
+    const b=document.getElementById("rb-"+k);
+    b.className="r-btn "+k+(r===k?" rated-"+k:"");
+  });
+  updateStats();
+}
+
+function flipCard(){
+  flipped=!flipped;
+  document.getElementById("card-wrapper").classList.toggle("flipped",flipped);
+  document.getElementById("rating-row").style.display=flipped?"flex":"none";
+}
+
+function navigate(dir){
+  flipped=false;
+  current=Math.max(0,Math.min(cards.length-1,current+dir));
+  renderCard();
+}
+
+function rate(r){
+  if(!cards.length)return;
+  ratings[cards[current].t]=r;
+  saveRatings();
+  ["good","ok","bad"].forEach(k=>{
+    document.getElementById("rb-"+k).className="r-btn "+k+(r===k?" rated-"+k:"");
+  });
+  updateStats();
+  if(current<cards.length-1){flipped=false;current++;renderCard();}
+}
+
+// キーボード操作
+document.addEventListener("keydown",e=>{
+  if(e.key==="ArrowLeft")navigate(-1);
+  else if(e.key==="ArrowRight")navigate(1);
+  else if(e.key===" "||e.key==="Enter"){e.preventDefault();flipCard();}
+  else if(e.key==="1")rate("good");
+  else if(e.key==="2")rate("ok");
+  else if(e.key==="3")rate("bad");
+});
+
+document.getElementById("chapter-filter").addEventListener("change",e=>{filterCh=e.target.value;cards=getFiltered();current=0;flipped=false;renderCard();});
+document.getElementById("mode-filter").addEventListener("change",e=>{filterMode=e.target.value;cards=getFiltered();current=0;flipped=false;renderCard();});
+document.getElementById("shuffle-btn").addEventListener("click",()=>{
+  for(let i=cards.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cards[i],cards[j]]=[cards[j],cards[i]];}
+  current=0;flipped=false;renderCard();
+});
+document.getElementById("reset-btn").addEventListener("click",()=>{
+  if(confirm("進捗をすべてリセットしますか？")){
+    ratings={};saveRatings();updateStats();renderCard();
+  }
+});
+
+cards=getFiltered();
+renderCard();
+</script>
+</body>
+</html>
